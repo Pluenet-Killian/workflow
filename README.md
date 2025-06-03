@@ -5,6 +5,8 @@ Cet utilitaire fournit un ensemble de commandes pour faciliter le workflow de d�
 ## Installation
 
 ```bash
+# Configurer git pour accepter l'automatisation
+git config --global --add --bool push.autoSetupRemote true
 # Installer l'utilitaire
 pip install --break-system-packages -e . && docker build -t ci_image .
 ```
@@ -92,14 +94,14 @@ Workflow pour les issues:
 4. Checkout de la branche module
 5. Merge fast-forward de la branche issue dans la branche module
 6. Vérification du build avec `push`
+7. Suppression optionnelle de la branche issue (selon configuration)
 
 Workflow pour les modules:
 1. Vérifie si un rebase est en cours et le continue si nécessaire
 2. Met à jour la référence distante de la branche `dev`
 3. Rebase la branche module sur la branche `dev` si nécessaire
-4. Checkout de la branche `dev`
-5. Merge fast-forward de la branche module dans la branche `dev`
-6. Vérification du build avec `push`
+4. Vérification du build avec `push`
+5. Affiche le lien pour créer une Pull Request sur GitHub
 
 Options:
 - `--debug`: Affiche les logs détaillés du build
@@ -117,8 +119,94 @@ ci_test finish
 
 # En étant sur une branche module
 ci_test finish
-# Fusionne le module dans dev
+# Prépare le module pour la fusion dans dev et affiche le lien PR GitHub
 ```
+
+### `ci_test config --delete=true|false` ou `ci_test config --list`
+
+Configure les paramètres de comportement de l'utilitaire.
+
+Options:
+- `--delete=true|false`: Active ou désactive la suppression automatique des branches mergées lors de `ci_test finish`
+- `--list`: Affiche la configuration actuelle
+
+Configuration stockée dans `~/.ci_test/config.json`.
+
+Exemples:
+```bash
+# Activer la suppression automatique (par défaut)
+ci_test config --delete=true
+
+# Désactiver la suppression automatique
+ci_test config --delete=false
+
+# Voir la configuration actuelle
+ci_test config --list
+```
+
+### `ci_test release`
+
+Automatise la création d'une release depuis la branche `dev` vers la branche `main` avec versioning automatique.
+
+Conditions préalables:
+- L'utilisateur doit être sur la branche `dev`
+- La branche `dev` doit contenir les modifications prêtes pour la release
+- Les branches `dev` et `main` doivent exister sur le dépôt distant
+
+Workflow automatisé:
+1. **Vérification**: Contrôle que l'utilisateur est sur la branche `dev`
+2. **Mise à jour**: Met à jour la branche `dev` locale depuis le dépôt distant
+3. **Checkout**: Bascule sur la branche `main`
+4. **Versioning**: Détermine automatiquement le numéro de version suivant
+5. **Nettoyage**: Nettoie le répertoire de travail et le cache git
+6. **Snapshot**: Copie l'intégralité du contenu de `dev` vers `main`
+7. **Commit**: Crée un commit de release avec le message standardisé
+8. **Tag**: Crée un tag git avec le numéro de version
+9. **Publication**: Pousse la branche `main` et le tag vers le dépôt distant
+10. **Confirmation**: Affiche le résumé de la release créée
+
+**Versioning automatique**:
+- Analyse l'historique des commits de `main` pour trouver la dernière release
+- Incrémente automatiquement le numéro de version majeure
+- Format des versions: `X.0` (ex: `1.0`, `2.0`, `3.0`)
+- Si aucune release précédente, démarre à `1.0`
+
+**Format des commits de release**:
+```
+Release X.0 - snapshot of dev
+```
+
+**Format des tags**:
+```
+X.0
+```
+
+Exemple:
+```bash
+# En étant sur la branche dev avec des modifications prêtes
+ci_test release
+# Sortie exemple :
+# 🔄  Mise à jour de la branche dev...
+# 🔄  Checkout de la branche main...
+# 🔍  Détermination du numéro de version...
+# 📦  Préparation de la release 2.0...
+# 🧹  Nettoyage du répertoire de travail...
+# 📋  Copie du contenu de dev...
+# ➕  Ajout des fichiers...
+# 💾  Création du commit: Release 2.0 - snapshot of dev
+# 🏷️  Création du tag 2.0...
+# 🚀  Push de la branche main...
+# 🚀  Push du tag 2.0...
+# ✅  Release 2.0 créée avec succès !
+# ✅  Tag: 2.0 créée avec succès 🏷️!
+```
+
+**Avantages du workflow de release**:
+- **Automatisation complète**: Aucune intervention manuelle requise
+- **Versioning cohérent**: Numérotation séquentielle automatique
+- **Traçabilité**: Tags git pour chaque release
+- **Sécurité**: Vérifications multiples avant publication
+- **Reproductibilité**: Snapshot exact de l'état dev
 
 ## Principes de conception
 
