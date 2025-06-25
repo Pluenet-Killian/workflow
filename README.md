@@ -2,6 +2,13 @@
 
 Cet utilitaire fournit un ensemble de commandes pour faciliter le workflow de développement et d'intégration continue pour les projets C/C++.
 
+## Prérequis
+
+- Python 3.6+
+- Git configuré avec authentification vers le dépôt distant
+- Docker (pour les vérifications de build en environnement isolé)
+- Make et outils de compilation C/C++ (gcc/g++)
+
 ## Installation
 
 ```bash
@@ -13,16 +20,21 @@ pip install --break-system-packages -e . && docker build -t ci_image .
 
 ## Commandes disponibles
 
-### `ci_test push [--debug]`
+**Note:** Certaines commandes ont des alias : `mod` (alias de `module`) et `iss` (alias de `issue`).
+
+### `ci_test push [--debug] [--force]`
 
 Vérifie la compilation du projet dans un environnement Docker isolé et pousse le commit.
 
 Options:
 - `--debug`: Affiche les logs détaillés même en cas de succès
+- `--force`: Ne lance pas les vérifications de build dans Docker
 
 Exemple:
 ```bash
 ci_test push
+ci_test push --debug
+ci_test push --force
 ```
 
 ### `ci_test clone <url>`
@@ -80,7 +92,7 @@ ci_test iss login
 # Crée et publie la branche mod/auth/login
 ```
 
-### `ci_test finish [--debug]`
+### `ci_test finish [--debug] [--force]`
 
 Termine la branche courante en la fusionnant dans sa branche cible.
 
@@ -105,6 +117,7 @@ Workflow pour les modules:
 
 Options:
 - `--debug`: Affiche les logs détaillés du build
+- `--force`: Ne lance pas les vérifications dans Docker
 
 Gestion des conflits:
 - Si un conflit survient pendant le rebase, la commande s'arrête
@@ -122,22 +135,63 @@ ci_test finish
 # Prépare le module pour la fusion dans dev et affiche le lien PR GitHub
 ```
 
+### `ci_test update [dev] [--debug] [--force]`
+
+Met à jour la branche courante par rebase sans merger ou faire de PR.
+
+Conditions préalables:
+- L'utilisateur doit être sur une branche module (`mod/*/main`) ou issue (`mod/*/*`)
+
+**Sur une branche de module** :
+- `ci_test update` → Rebase la branche de module par rapport à la branche dev + vérification build + push
+
+**Sur une branche d'issue** :
+- `ci_test update` → Rebase la branche d'issue par rapport à la branche de module + vérification build + push
+- `ci_test update dev` → Rebase la branche de module par rapport à dev + push, puis rebase la branche d'issue par rapport à la branche de module + push
+
+Options:
+- `--debug`: Affiche les logs détaillés du build
+- `--force`: Ne lance pas les vérifications dans Docker
+
+Gestion des conflits:
+- Si un conflit survient pendant le rebase, la commande s'arrête
+- L'utilisateur doit résoudre les conflits manuellement
+- Après résolution, l'utilisateur relance `ci_test update` pour continuer
+
+Exemples:
+```bash
+# En étant sur une branche module
+ci_test update
+# Rebase la branche de module sur dev
+
+# En étant sur une branche issue
+ci_test update
+# Rebase la branche d'issue sur sa branche module
+
+ci_test update dev
+# Rebase module sur dev, puis issue sur module
+
+# Avec options
+ci_test update --force  # Sans vérification Docker
+ci_test update dev --debug  # Avec logs détaillés
+```
+
 ### `ci_test config --delete=true|false` ou `ci_test config --list`
 
 Configure les paramètres de comportement de l'utilitaire.
 
 Options:
-- `--delete=true|false`: Active ou désactive la suppression automatique des branches mergées lors de `ci_test finish`
+- `--delete=true|false`: Active ou désactive la suppression automatique des branches mergées lors de `ci_test finish` (false par défaut)
 - `--list`: Affiche la configuration actuelle
 
 Configuration stockée dans `~/.ci_test/config.json`.
 
 Exemples:
 ```bash
-# Activer la suppression automatique (par défaut)
+# Activer la suppression automatique
 ci_test config --delete=true
 
-# Désactiver la suppression automatique
+# Désactiver la suppression automatique (par défaut)
 ci_test config --delete=false
 
 # Voir la configuration actuelle
